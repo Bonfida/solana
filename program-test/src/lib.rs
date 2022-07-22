@@ -152,13 +152,13 @@ pub fn builtin_process_instruction(
                     borrowed_account.set_lamports(account_info.lamports())?;
                 }
 
-                if borrowed_account
-                    .can_data_be_resized(account_info.data_len())
-                    .is_ok()
-                    && borrowed_account.can_data_be_changed().is_ok()
-                {
-                    borrowed_account.set_data(&account_info.data.borrow())?;
-                }
+                // if borrowed_account
+                //     .can_data_be_resized(account_info.data_len())
+                //     .is_ok()
+                //     && borrowed_account.can_data_be_changed().is_ok()
+                // {
+                //     borrowed_account.set_data(&account_info.data.borrow())?;
+                // }
                 if borrowed_account.get_owner() != account_info.owner {
                     borrowed_account.set_owner(account_info.owner.as_ref())?;
                 }
@@ -292,23 +292,23 @@ impl solana_sdk::program_stubs::SyscallStubs for SyscallStubs {
 
         // Copy invoke_context accounts modifications into caller's account_info
         for (index_in_transaction, account_info_index) in account_indices.into_iter() {
-            let account = invoke_context
+            let borrowed_account = invoke_context
                 .transaction_context
                 .get_account_at_index(index_in_transaction)
                 .unwrap()
                 .borrow_mut();
             let account_info = &account_infos[account_info_index];
-            **account_info.try_borrow_mut_lamports().unwrap() = borrowed_account.get_lamports();
-            if account_info.owner != borrowed_account.get_owner() {
+            **account_info.try_borrow_mut_lamports().unwrap() = borrowed_account.lamports();
+            if account_info.owner != borrowed_account.owner() {
                 // TODO Figure out a better way to allow the System Program to set the account owner
                 #[allow(clippy::transmute_ptr_to_ptr)]
                 #[allow(mutable_transmutes)]
                 let account_info_mut =
                     unsafe { transmute::<&Pubkey, &mut Pubkey>(account_info.owner) };
-                *account_info_mut = *account.owner();
+                *account_info_mut = *borrowed_account.owner();
             }
 
-            let new_data = borrowed_account.get_data();
+            let new_data = borrowed_account.data();
             let new_len = new_data.len();
 
             // Resize account_info data (grow-only)
